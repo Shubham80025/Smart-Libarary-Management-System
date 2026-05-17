@@ -74,10 +74,10 @@ export default function HomePage() {
   }, []);
 
   const galleryImages = [
-    "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80", 
-    "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&q=80", 
-    "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&q=80", 
-    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80", 
+    "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=800&q=70", 
+    "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=70", 
+    "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=70", 
+    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=70", 
   ];
 
   return (
@@ -86,7 +86,7 @@ export default function HomePage() {
       <section id="home" className="relative pt-20 flex items-center min-h-[85vh] lg:min-h-[80vh] bg-slate-900 overflow-hidden">
         <div className="absolute inset-0">
           <img 
-            src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&q=80" 
+            src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=1600&q=60"
             alt="Library background" 
             className="w-full h-full object-cover opacity-40 mix-blend-overlay"
           />
@@ -172,6 +172,7 @@ export default function HomePage() {
                   src="/campus.jpg" 
                   alt="Government Engineering College, Gopalganj" 
                   className="w-full h-[500px] object-cover" 
+                  loading="lazy"
                 />
               </div>
             </FadeIn>
