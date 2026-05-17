@@ -1,0 +1,271 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role helpers
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "admin@gmail.com") || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getUserRole() == "Admin" || getUserRole() == "Librarian"))
+      );
+    }
+
+    function isStudent() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserRole() == "Student";
+    }
+
+    // Validation for User creation
+    function isValidUser(data) {
+      return data.keys().hasAll(['role', 'name', 'email', 'createdAt']) &&
+        data.role is string &&
+        (data.role == "Student" || data.role == "Faculty" || data.role == "Librarian" || data.role == "Admin") &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+        data.createdAt == request.time &&
+        (!('branch' in data) || (data.branch is string && data.branch.size() <= 100)) &&
+        (!('registrationNumber' in data) || (data.registrationNumber is string && data.registrationNumber.size() <= 100)) &&
+        (!('faculty' in data) || (data.faculty is string && data.faculty.size() <= 100)) &&
+        (!('status' in data) || (data.status is string && data.status in ['pending', 'approved', 'rejected', 'active', 'inactive'])) &&
+        (!('isApproved' in data) || data.isApproved is bool) &&
+        (!('isEmailVerified' in data) || data.isEmailVerified is bool);
+    }
+
+    function isValidUserUpdate(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        (!('branch' in data) || (data.branch is string && data.branch.size() <= 100)) &&
+        (!('registrationNumber' in data) || (data.registrationNumber is string && data.registrationNumber.size() <= 100)) &&
+        (!('faculty' in data) || (data.faculty is string && data.faculty.size() <= 100)) &&
+        (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1048576)) &&
+        (!('isEmailVerified' in data) || data.isEmailVerified is bool);
+    }
+
+    match /users/{userId} {
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
+      // Admin may also create users? Let's allow users to self-register for now, or admins to create.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow update: if (isSignedIn() && isValidId(userId) && request.auth.uid == userId &&
+        incoming().diff(existing()).affectedKeys().hasAny(['name', 'branch', 'registrationNumber', 'faculty', 'photoURL', 'isEmailVerified']) &&
+        !incoming().diff(existing()).affectedKeys().hasAny(['role', 'email', 'createdAt']) &&
+        isValidUserUpdate(incoming())) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Books Collection
+    function isValidBook(data) {
+      return data.keys().hasAll(['title', 'author', 'category', 'isbn', 'quantity', 'availableQuantity', 'createdAt']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.author is string && data.author.size() > 0 && data.author.size() <= 200 &&
+        data.category is string && data.category.size() <= 100 &&
+        data.isbn is string && data.isbn.size() <= 50 &&
+        data.quantity is number && data.quantity >= 0 &&
+        data.availableQuantity is number && data.availableQuantity >= 0 && data.availableQuantity <= data.quantity &&
+        data.createdAt == request.time;
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidBook(incoming());
+      allow update: if isAdmin() || (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['availableQuantity']) && incoming().availableQuantity is number && incoming().availableQuantity >= 0 && incoming().availableQuantity <= existing().quantity);
+      allow delete: if isAdmin();
+    }
+
+    // Requests Collection
+    function isValidRequest(data) {
+      return data.keys().hasAll(['bookId', 'userId', 'type', 'status', 'requestDate']) &&
+        data.bookId is string && data.bookId.size() > 0 && data.bookId.size() <= 128 &&
+        data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+        data.type in ["Issue", "Return"] &&
+        data.status in ["Pending", "Approved", "Rejected", "Completed"] &&
+        data.requestDate is number;
+        // createdAt may or may not be checked here since we enforce hasAll but not hasOnly
+    }
+
+    match /requests/{requestId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().status == "Pending" && isValidRequest(incoming());
+      allow update: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid); // Student can update if needed, but usually admin updates status
+      allow delete: if isAdmin();
+    }
+
+    // Reservations Collection
+    function isValidReservation(data) {
+      return data.keys().hasAll(['bookId', 'userId', 'status', 'requestDate']) &&
+        data.bookId is string && data.bookId.size() > 0 && data.bookId.size() <= 128 &&
+        data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+        data.status in ["waiting", "fulfilled", "cancelled"] &&
+        data.requestDate is number;
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if true;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().status == "waiting" && isValidReservation(incoming());
+      allow update: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'cancelled');
+      allow delete: if isAdmin();
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isAdmin() || isSignedIn(); // System/Admin creates or client creates if needed safely
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']) && incoming().read is bool;
+      allow delete: if isAdmin();
+    }
+
+    // Fines Collection
+    match /fines/{fineId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'lastUpdated']) && incoming().status == 'Paid');
+    }
+
+    // Student Productivity Collections
+    match /studentTasks/{taskId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /studyGoals/{goalId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /studentRoutines/{routineId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+    
+    match /activityLogs/{logId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && existing().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Feedback Collection
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().rating is number && incoming().rating >= 1 && incoming().rating <= 5 && incoming().comments is string;
+      allow update, delete: if isAdmin();
+    }
+
+    // NewBookRequests Collection
+    match /newBookRequests/{requestId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().status == "Pending";
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // EBooks Collection
+    match /ebooks/{ebookId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && incoming().keys().hasAll(['title', 'author', 'category', 'fileURL', 'fileName', 'uploadedBy', 'createdAt', 'downloadCount']);
+      allow update: if isAdmin() || (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['downloadCount']));
+      allow delete: if isAdmin();
+    }
+    
+    // BookReviews Collection
+    match /bookReviews/{reviewId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // Subscriptions Collection
+    match /subscriptions/{subscriptionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().keys().hasAll(['bookId', 'userId', 'createdAt']);
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // Notices Collection (System/Global Announcements)
+    function isValidNotice(data) {
+      return data.keys().hasAll(['title', 'message', 'type', 'target', 'isPublished', 'createdBy', 'createdAt']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.message is string && data.message.size() > 0 && data.message.size() <= 5000 &&
+        data.type in ["General", "Urgent", "Event"] &&
+        data.target in ["All", "Students", "Faculty"] &&
+        data.isPublished is bool &&
+        data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128 &&
+        data.createdAt is number &&
+        (!('expiryDate' in data) || (data.expiryDate is number));
+    }
+
+    match /notices/{noticeId} {
+      allow read: if resource.data.isPublished == true || isAdmin();
+      allow create: if isAdmin() && isValidNotice(incoming()) && incoming().createdBy == request.auth.uid;
+      allow update: if isAdmin() && (
+        incoming().diff(existing()).affectedKeys().hasAny(['title', 'message', 'type', 'target', 'isPublished', 'expiryDate']) &&
+        !incoming().diff(existing()).affectedKeys().hasAny(['createdBy', 'createdAt']) &&
+        incoming().title is string && incoming().title.size() > 0 && incoming().title.size() <= 200 &&
+        incoming().message is string && incoming().message.size() > 0 && incoming().message.size() <= 5000 &&
+        incoming().type in ["General", "Urgent", "Event"] &&
+        incoming().target in ["All", "Students", "Faculty"] &&
+        incoming().isPublished is bool &&
+        (!('expiryDate' in incoming()) || (incoming().expiryDate is number))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // AccessCodes Collection
+    match /accessCodes/{code} {
+      allow get: if true; // Used during unauthenticated signup
+      allow list: if isAdmin();
+      allow create: if isAdmin() && incoming().keys().hasAll(['code', 'role', 'isActive', 'createdAt']) && incoming().role in ["Admin", "Librarian"];
+      allow update: if (isAdmin()) || (incoming().diff(existing()).affectedKeys().hasOnly(['isActive', 'usedBy', 'usedAt']) && incoming().isActive == false);
+      allow delete: if isAdmin();
+    }
+    // Notes Collection
+    match /notes/{noteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || (isSignedIn() && existing().uploadedBy == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+    // Memberships Collection
+    match /memberships/{membershipId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid && incoming().status == 'active'); 
+      allow update: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'expiryDate']));
+      allow delete: if isAdmin();
+    }
+
+    // Fees Collection
+    match /fees/{feeId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid);
+      allow update: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['paidStatus', 'paymentDate', 'lateFee', 'amount']));
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+html {
+  scroll-behavior: smooth;
+  background-color: white;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #id-card, #id-card * {
+    visibility: visible;
+  }
+  #id-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 400px;
+    margin: 0;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "A registered user in the library system (Student, Librarian, Admin).",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["Student", "Librarian", "Admin"]
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "registrationNumber": {
+          "type": "string"
+        },
+        "faculty": {
+          "type": "string"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the student is active"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp"
+        }
+      },
+      "required": ["role", "name", "email", "createdAt"]
+    },
+    "book": {
+      "title": "Book",
+      "description": "A book in the library catalog.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "category": { "type": "string" },
+        "isbn": { "type": "string" },
+        "quantity": { "type": "number", "description": "Total quantity of this book" },
+        "availableQuantity": { "type": "number", "description": "Available stock to be issued" },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp"
+        }
+      },
+      "required": ["title", "author", "category", "isbn", "quantity", "availableQuantity", "createdAt"]
+    },
+    "request": {
+      "title": "Book Request",
+      "description": "A request made by a student to issue or return a book.",
+      "type": "object",
+      "properties": {
+        "bookId": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Issue", "Return"] },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Completed"] },
+        "requestDate": { "type": "number" },
+        "issueDate": { "type": "number", "description": "Timestamp when approved for issue" },
+        "dueDate": { "type": "number", "description": "Timestamp when the book is due" },
+        "returnDate": { "type": "number", "description": "Timestamp when the book was returned" }
+      },
+      "required": ["bookId", "userId", "type", "status", "requestDate"]
+    },
+    "fine": {
+      "title": "Fine",
+      "description": "A fee for overdue return or lost books.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "requestId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Unpaid", "Paid"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "requestId", "amount", "status", "createdAt"]
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "Alerts for students",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "title", "message", "read", "createdAt"]
+    },
+    "feedback": {
+      "title": "Feedback",
+      "description": "Student feedback",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comments": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "rating", "comments", "createdAt"]
+    },
+    "notice": {
+      "title": "System Notice",
+      "description": "Global announcements and notifications for users.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["General", "Urgent", "Event"] },
+        "target": { "type": "string", "enum": ["All", "Students", "Faculty"] },
+        "isPublished": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "expiryDate": { "type": "number" }
+      },
+      "required": ["title", "message", "type", "target", "isPublished", "createdBy", "createdAt"]
+    },
+    "newBookRequest": {
+      "title": "New Book Request",
+      "description": "Request for a book not in the library",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bookName": { "type": "string" },
+        "author": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Reviewed"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "bookName", "author", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/user"
+      },
+      "description": "Stores user profiles with their roles and specific details."
+    },
+    "/books/{bookId}": {
+      "schema": {
+        "$ref": "#/entities/book"
+      },
+      "description": "Stores all books available in the library."
+    },
+    "/requests/{requestId}": {
+      "schema": {
+        "$ref": "#/entities/request"
+      },
+      "description": "Stores issue and return requests made by students."
+    },
+    "/fines/{fineId}": {
+      "schema": {
+        "$ref": "#/entities/fine"
+      },
+      "description": "Stores fine details associated with users and overdue books."
+    },
+    "/notifications/{notificationId}": {
+      "schema": {
+        "$ref": "#/entities/notification"
+      },
+      "description": "Notifications for students."
+    },
+    "/feedback/{feedbackId}": {
+      "schema": {
+        "$ref": "#/entities/feedback"
+      },
+      "description": "Student feedback."
+    },
+    "/newBookRequests/{requestId}": {
+      "schema": {
+        "$ref": "#/entities/newBookRequest"
+      },
+      "description": "Requests for new books."
+    },
+    "/notices/{noticeId}": {
+      "schema": {
+        "$ref": "#/entities/notice"
+      },
+      "description": "Global notices and announcements."
+    }
+  }
+}
