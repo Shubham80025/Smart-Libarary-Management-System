@@ -59,8 +59,8 @@ export default function MainNavbar({ currentUser, userRole, isDark, setIsDark }:
     <>
       <nav className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 overflow-hidden flex items-center justify-center rounded-lg bg-white p-0.5">
+          <Link to="/" className="flex items-center space-x-3">
+            <div className="w-14 h-14 overflow-hidden flex items-center justify-center rounded-lg bg-white p-0.5 shadow-sm">
               <img src="https://upload.wikimedia.org/wikipedia/en/b/b3/Logo_of_GEC_Gopalganj.png" alt="GEC Gopalganj Logo" className="w-full h-full object-contain" />
             </div>
             <div>

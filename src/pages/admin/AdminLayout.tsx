@@ -57,7 +57,7 @@ export default function AdminLayout({ currentUser, userRole }: { currentUser: an
   const SidebarContent = () => (
     <>
       <div className="p-6 flex items-center space-x-3 mb-2 shrink-0">
-        <div className="w-10 h-10 overflow-hidden flex items-center justify-center rounded-lg bg-white p-0.5 shrink-0">
+        <div className="w-14 h-14 overflow-hidden flex items-center justify-center rounded-lg bg-white p-0.5 shrink-0 shadow-sm">
           <img src="https://upload.wikimedia.org/wikipedia/en/b/b3/Logo_of_GEC_Gopalganj.png" alt="GEC Gopalganj Logo" className="w-full h-full object-contain" />
         </div>
         <div>
@@ -103,8 +103,8 @@ export default function AdminLayout({ currentUser, userRole }: { currentUser: an
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row font-sans text-slate-900 dark:text-slate-100">
       {/* Mobile Header */}
       <div className="md:hidden bg-slate-900 text-white h-16 flex items-center justify-between px-4 sticky top-0 z-50">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 overflow-hidden flex items-center justify-center rounded-md bg-white p-0.5 shrink-0">
+         <div className="flex items-center space-x-3">
+          <div className="w-14 h-14 overflow-hidden flex items-center justify-center rounded-lg bg-white p-0.5 shrink-0 shadow-sm">
             <img src="https://upload.wikimedia.org/wikipedia/en/b/b3/Logo_of_GEC_Gopalganj.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-bold">{userRole === 'Librarian' ? 'Librarian Panel' : 'Admin Panel'}</span>
